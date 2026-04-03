@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>단체예약 현황 대시보드</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --green:#2E7D32; --green-l:#E8F5E9;
+    --red:#B71C1C; --red-l:#FFEBEE;
+    --blue:#1565C0; --blue-l:#E3F2FD;
+    --orange:#E65100; --orange-l:#FFF3E0;
+    --border:#E0E0E0; --text:#1A1A1A; --sub:#757575;
+  }
+  body { font-family:'Noto Sans KR',sans-serif; background:#F0F2F5; color:var(--text); }
+  .header { background:white; border-bottom:1px solid var(--border); padding:16px 24px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+  .header-left { display:flex; align-items:center; gap:12px; }
+  .badge { background:var(--green); color:white; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
+  .header h1 { font-size:18px; font-weight:700; }
+  .container { max-width:1400px; margin:0 auto; padding:24px 20px; }
+  .summary-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:24px; }
+  .card { background:white; border-radius:14px; padding:18px 20px; box-shadow:0 2px 8px rgba(0,0,0,0.06); border-top:4px solid var(--border); }
+  .card.green{border-top-color:var(--green)} .card.blue{border-top-color:var(--blue)} .card.red{border-top-color:var(--red)} .card.orange{border-top-color:var(--orange)}
+  .card-label { font-size:12px; color:var(--sub); font-weight:500; margin-bottom:6px; }
+  .card-value { font-size:26px; font-weight:900; line-height:1; }
+  .card.green .card-value{color:var(--green)} .card.blue .card-value{color:var(--blue)} .card.red .card-value{color:var(--red)} .card.orange .card-value{color:var(--orange)}
+  .card-sub { font-size:12px; color:var(--sub); margin-top:4px; }
+  .chart-box { background:white; border-radius:14px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,0.06); margin-bottom:24px; }
+  .chart-title { font-size:14px; font-weight:700; margin-bottom:16px; }
+  .bar-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .bar-label { font-size:13px; width:50px; text-align:right; color:var(--sub); flex-shrink:0; }
+  .bar-track { flex:1; height:28px; background:#F5F5F5; border-radius:6px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:6px; display:flex; align-items:center; padding-left:10px; font-size:12px; font-weight:700; color:white; min-width:4px; }
+  .bar-outside { font-size:12px; color:#888; flex-shrink:0; }
+  .bar-count { font-size:12px; color:var(--sub); width:32px; text-align:right; flex-shrink:0; }
+  .table-box { background:white; border-radius:14px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+  .table-header-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:10px; }
+  .table-title { font-size:14px; font-weight:700; }
+  .search-wrap { display:flex; gap:8px; align-items:center; }
+  .search-input { border:1px solid var(--border); border-radius:8px; padding:7px 12px; font-size:13px; font-family:inherit; outline:none; width:180px; }
+  .search-input:focus { border-color:var(--green); }
+  .filter-btn { border:1px solid var(--border); border-radius:8px; padding:7px 12px; font-size:12px; font-family:inherit; background:white; cursor:pointer; font-weight:500; }
+  .filter-btn.active { background:var(--green); color:white; border-color:var(--green); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead th { background:var(--green); color:white; padding:10px 12px; text-align:center; font-weight:700; font-size:12px; white-space:nowrap; }
+  thead th.loss-col { background:var(--red); }
+  tbody tr:nth-child(even){background:#FAFAFA} tbody tr:hover{background:var(--green-l)}
+  tbody td { padding:9px 12px; text-align:center; border-bottom:1px solid #F0F0F0; white-space:nowrap; }
+  tbody td.store-name { text-align:left; font-weight:500; }
+  .rate-badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700; }
+  .rate-high{background:var(--green-l);color:var(--green)} .rate-mid{background:var(--orange-l);color:var(--orange)} .rate-low{background:var(--red-l);color:var(--red)}
+  .loss-val{color:var(--red);font-weight:700} .zero-val{color:#BDBDBD}
+  tfoot td { font-weight:700; background:#FFF9C4; padding:10px 12px; text-align:center; border-top:2px solid var(--border); }
+  tfoot td.store-name{text-align:left}
+  @media(max-width:900px){.summary-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:600px){.summary-grid{grid-template-columns:1fr 1fr};.container{padding:16px 12px};table{font-size:11px}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-left">
+    <div class="badge">ASHLEY QUEENS</div>
+    <h1>단체예약 현황 대시보드</h1>
+  </div>
+  <span style="font-size:12px;color:#999">기준: 2026년 3월</span>
+</div>
+<div class="container">
+  <div class="summary-grid">
+    <div class="card blue"><div class="card-label">전체 예약</div><div class="card-value" id="s-total">—</div><div class="card-sub">건</div></div>
+    <div class="card green"><div class="card-label">체결</div><div class="card-value" id="s-confirmed">—</div><div class="card-sub" id="s-rate">—</div></div>
+    <div class="card red"><div class="card-label">불가</div><div class="card-value" id="s-rejected">—</div><div class="card-sub">건</div></div>
+    <div class="card orange"><div class="card-label">체결 예상금액</div><div class="card-value" id="s-revenue" style="font-size:18px">—</div><div class="card-sub">원</div></div>
+    <div class="card red"><div class="card-label">손실 금액</div><div class="card-value" id="s-loss" style="font-size:18px">—</div><div class="card-sub">원</div></div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-title">📊 구분별 예약 현황</div>
+    <div id="bar-chart"></div>
+  </div>
+  <div class="table-box">
+    <div class="table-header-row">
+      <div class="table-title">① 매장별 예약 현황 (체결 기준 인원·금액)</div>
+      <div class="search-wrap">
+        <input class="search-input" id="search-input" placeholder="🔍 매장명 검색..." oninput="render()">
+        <button class="filter-btn active" id="btn-all" onclick="setFilter('all')">전체</button>
+        <button class="filter-btn" id="btn-loss" onclick="setFilter('loss')">손실 있음</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>예약매장</th><th>총건수</th><th>체결</th><th>불가</th><th>체결률</th>
+          <th>체결 성인</th><th>체결 초등</th><th>체결 미취학</th><th>체결 총인원</th>
+          <th>체결 예상금액(원)</th><th class="loss-col">손실 금액(원)</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+        <tfoot id="tfoot"></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+<script>
+const DATA = {"summary":{"total":123,"confirmed":89,"rejected":34,"rate":72.4,"revenue":70558800,"loss":59129500},"rows":[{"store":"퀸즈 여의도 한강공원점","total":19,"confirmed":6,"rejected":13,"rate":31.6,"adult":91,"child":33,"infant":4,"headcount":128,"revenue":2814200,"loss":16161600},{"store":"퀸즈 과천점","total":8,"confirmed":7,"rejected":1,"rate":87.5,"adult":99,"child":3,"infant":0,"headcount":102,"revenue":2602800,"loss":1036000},{"store":"퀸즈 롯데아울렛 동부산점","total":5,"confirmed":2,"rejected":3,"rate":40.0,"adult":193,"child":0,"infant":0,"headcount":193,"revenue":4998700,"loss":8210300},{"store":"퀸즈 서울대입구점","total":4,"confirmed":3,"rejected":1,"rate":75.0,"adult":99,"child":0,"infant":0,"headcount":99,"revenue":2564100,"loss":543900},{"store":"퀸즈 롯데몰 은평점","total":4,"confirmed":3,"rejected":1,"rate":75.0,"adult":105,"child":0,"infant":0,"headcount":105,"revenue":2719500,"loss":2201500},{"store":"퀸즈 던던 동대문점","total":4,"confirmed":4,"rejected":0,"rate":100.0,"adult":53,"child":28,"infant":2,"headcount":83,"revenue":1749700,"loss":0},{"store":"퀸즈 구의이스트폴점","total":3,"confirmed":2,"rejected":1,"rate":66.7,"adult":43,"child":0,"infant":0,"headcount":43,"revenue":1113700,"loss":1813000},{"store":"퀸즈 원더아리아 청주점","total":3,"confirmed":3,"rejected":0,"rate":100.0,"adult":67,"child":0,"infant":0,"headcount":67,"revenue":1735300,"loss":0},{"store":"퀸즈 홍대점","total":3,"confirmed":3,"rejected":0,"rate":100.0,"adult":99,"child":0,"infant":3,"headcount":102,"revenue":2587800,"loss":0},{"store":"퀸즈 천안펜타포트점","total":3,"confirmed":3,"rejected":0,"rate":100.0,"adult":112,"child":0,"infant":0,"headcount":112,"revenue":2900800,"loss":0},{"store":"퀸즈 대학로점","total":3,"confirmed":3,"rejected":0,"rate":100.0,"adult":88,"child":27,"infant":0,"headcount":115,"revenue":2627500,"loss":0},{"store":"퀸즈 뉴코아 평촌점","total":3,"confirmed":3,"rejected":0,"rate":100.0,"adult":58,"child":0,"infant":0,"headcount":58,"revenue":1502200,"loss":0},{"store":"퀸즈 레이크꼬모 동탄점","total":2,"confirmed":2,"rejected":0,"rate":100.0,"adult":150,"child":0,"infant":0,"headcount":150,"revenue":3885000,"loss":0},{"store":"퀸즈 이마트 문현점","total":2,"confirmed":1,"rejected":1,"rate":50.0,"adult":45,"child":0,"infant":0,"headcount":45,"revenue":1165500,"loss":518000},{"store":"퀸즈 롯데피트인 산본점","total":2,"confirmed":2,"rejected":0,"rate":100.0,"adult":33,"child":0,"infant":0,"headcount":33,"revenue":854700,"loss":0},{"store":"퀸즈 롯데마트 광복점","total":2,"confirmed":1,"rejected":1,"rate":50.0,"adult":13,"child":0,"infant":0,"headcount":13,"revenue":336700,"loss":0},{"store":"퀸즈 대전PEER점","total":2,"confirmed":1,"rejected":1,"rate":50.0,"adult":11,"child":0,"infant":0,"headcount":11,"revenue":284900,"loss":1735300},{"store":"퀸즈 당진점","total":2,"confirmed":2,"rejected":0,"rate":100.0,"adult":42,"child":5,"infant":1,"headcount":48,"revenue":1160200,"loss":0},{"store":"퀸즈 롯데마트 양평점","total":2,"confirmed":2,"rejected":0,"rate":100.0,"adult":37,"child":5,"infant":0,"headcount":42,"revenue":1022800,"loss":0},{"store":"퀸즈 NC청주점","total":2,"confirmed":1,"rejected":1,"rate":50.0,"adult":157,"child":0,"infant":0,"headcount":157,"revenue":4066300,"loss":12950000},{"store":"퀸즈 뉴코아 덕천점","total":2,"confirmed":2,"rejected":0,"rate":100.0,"adult":135,"child":0,"infant":0,"headcount":135,"revenue":3496500,"loss":0},{"store":"퀸즈 NC해운대점","total":2,"confirmed":1,"rejected":1,"rate":50.0,"adult":140,"child":0,"infant":0,"headcount":140,"revenue":3626000,"loss":4662000},{"store":"퀸즈 화정점","total":2,"confirmed":2,"rejected":0,"rate":100.0,"adult":24,"child":0,"infant":0,"headcount":24,"revenue":621600,"loss":0},{"store":"퀸즈 춘천점","total":2,"confirmed":2,"rejected":0,"rate":100.0,"adult":25,"child":0,"infant":0,"headcount":25,"revenue":647500,"loss":0},{"store":"퀸즈 종각역점","total":2,"confirmed":2,"rejected":0,"rate":100.0,"adult":15,"child":126,"infant":0,"headcount":141,"revenue":2013900,"loss":0},{"store":"퀸즈 이마트 월계점","total":2,"confirmed":1,"rejected":1,"rate":50.0,"adult":42,"child":0,"infant":0,"headcount":42,"revenue":1087800,"loss":336700},{"store":"퀸즈 엔터식스 안양점","total":2,"confirmed":1,"rejected":1,"rate":50.0,"adult":16,"child":0,"infant":0,"headcount":16,"revenue":414400,"loss":595700},{"store":"퀸즈 신세계아울렛 시흥점","total":2,"confirmed":0,"rejected":2,"rate":0.0,"adult":0,"child":0,"infant":0,"headcount":0,"revenue":0,"loss":725000},{"store":"퀸즈 별내점","total":2,"confirmed":2,"rejected":0,"rate":100.0,"adult":37,"child":0,"infant":0,"headcount":37,"revenue":958300,"loss":0},{"store":"퀸즈 롯데마트 의왕점","total":2,"confirmed":2,"rejected":0,"rate":100.0,"adult":24,"child":0,"infant":0,"headcount":24,"revenue":621600,"loss":0},{"store":"퀸즈 이마트 목동점","total":2,"confirmed":2,"rejected":0,"rate":100.0,"adult":36,"child":20,"infant":5,"headcount":61,"revenue":1229900,"loss":0},{"store":"퀸즈 2001 중계점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":11,"child":0,"infant":0,"headcount":11,"revenue":284900,"loss":0},{"store":"퀸즈 강남역점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":76,"child":0,"infant":0,"headcount":76,"revenue":1968400,"loss":0},{"store":"퀸즈 AK 수원점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":17,"child":0,"infant":0,"headcount":17,"revenue":440300,"loss":0},{"store":"퀸즈 NC 대전유성점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":8,"child":13,"infant":0,"headcount":21,"revenue":374900,"loss":0},{"store":"퀸즈 NC경산점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":10,"child":0,"infant":0,"headcount":10,"revenue":259000,"loss":0},{"store":"퀸즈 NC부산대점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":25,"child":0,"infant":0,"headcount":25,"revenue":647500,"loss":0},{"store":"퀸즈 NC중앙로역점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":18,"child":0,"infant":4,"headcount":22,"revenue":497800,"loss":0},{"store":"퀸즈 동아쇼핑 대구점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":39,"child":0,"infant":0,"headcount":39,"revenue":1010100,"loss":0},{"store":"퀸즈 뉴코아 일산점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":13,"child":7,"infant":0,"headcount":20,"revenue":427000,"loss":0},{"store":"퀸즈 명지대점","total":1,"confirmed":0,"rejected":1,"rate":0.0,"adult":0,"child":0,"infant":0,"headcount":0,"revenue":0,"loss":621600},{"store":"퀸즈 마곡점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":18,"child":0,"infant":0,"headcount":18,"revenue":466200,"loss":0},{"store":"퀸즈 롯데백화점 대구점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":35,"child":0,"infant":0,"headcount":35,"revenue":906500,"loss":0},{"store":"퀸즈 롯데몰 군산점","total":1,"confirmed":0,"rejected":1,"rate":0.0,"adult":0,"child":0,"infant":0,"headcount":0,"revenue":0,"loss":1036000},{"store":"퀸즈 롯데백화점 청량리점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":50,"child":0,"infant":0,"headcount":50,"revenue":1295000,"loss":0},{"store":"퀸즈 루원시티 인천점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":35,"child":0,"infant":0,"headcount":35,"revenue":906500,"loss":0},{"store":"퀸즈 송도트리플스트리트점","total":1,"confirmed":0,"rejected":1,"rate":0.0,"adult":0,"child":0,"infant":0,"headcount":0,"revenue":0,"loss":3108000},{"store":"퀸즈 신세계백화점 김해점","total":1,"confirmed":0,"rejected":1,"rate":0.0,"adult":0,"child":0,"infant":0,"headcount":0,"revenue":0,"loss":284900},{"store":"퀸즈 창동씨드큐브점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":10,"child":1,"infant":0,"headcount":11,"revenue":271900,"loss":0},{"store":"퀸즈 잠실롯데캐슬점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":30,"child":0,"infant":0,"headcount":30,"revenue":777000,"loss":0},{"store":"퀸즈 현대백화점 신촌점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":10,"child":0,"infant":0,"headcount":10,"revenue":259000,"loss":0},{"store":"퀸즈 파주운정점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":80,"child":0,"infant":0,"headcount":80,"revenue":2072000,"loss":0},{"store":"퀸즈 홈플러스 인천청라점","total":1,"confirmed":1,"rejected":0,"rate":100.0,"adult":11,"child":0,"infant":0,"headcount":11,"revenue":284900,"loss":0},{"store":"퀸즈 홈플러스 세종점","total":1,"confirmed":0,"rejected":1,"rate":0.0,"adult":0,"child":0,"infant":0,"headcount":0,"revenue":0,"loss":2590000}],"구분":[{"label":"런치","count":47,"confirmed":31},{"label":"주말","count":39,"confirmed":32},{"label":"디너","count":34,"confirmed":26},{"label":"기타","count":3,"confirmed":0}]};
+
+const fmt = n => n.toLocaleString('ko-KR');
+let currentFilter = 'all';
+
+// 요약
+const s = DATA.summary;
+document.getElementById('s-total').textContent = fmt(s.total);
+document.getElementById('s-confirmed').textContent = fmt(s.confirmed);
+document.getElementById('s-rate').textContent = '체결률 ' + s.rate + '%';
+document.getElementById('s-rejected').textContent = fmt(s.rejected);
+document.getElementById('s-revenue').textContent = fmt(s.revenue);
+document.getElementById('s-loss').textContent = fmt(s.loss);
+
+// 바 차트
+const barColors = {'런치':'#1565C0','주말':'#2E7D32','디너':'#E65100','기타':'#9E9E9E'};
+const maxCount = Math.max.apply(null, DATA.구분.map(function(d){ return d.count; }));
+const barHtml = DATA.구분.map(function(d) {
+  const pct = d.count / maxCount * 100;
+  const showInside = pct > 22;
+  const fillText = showInside ? d.confirmed + '체결' : '';
+  const outsideText = showInside ? '' : '<span class="bar-outside">' + d.confirmed + '체결</span>';
+  return '<div class="bar-row">' +
+    '<div class="bar-label">' + d.label + '</div>' +
+    '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:' + (barColors[d.label]||'#666') + '">' + fillText + '</div></div>' +
+    outsideText +
+    '<div class="bar-count">' + d.count + '건</div>' +
+    '</div>';
+}).join('');
+document.getElementById('bar-chart').innerHTML = barHtml;
+
+// 테이블
+function render() {
+  const q = document.getElementById('search-input').value.trim();
+  let rows = DATA.rows;
+  if (currentFilter === 'loss') rows = rows.filter(function(r){ return r.loss > 0; });
+  if (q) rows = rows.filter(function(r){ return r.store.indexOf(q) >= 0; });
+
+  document.getElementById('tbody').innerHTML = rows.map(function(r) {
+    const rc = r.rate >= 80 ? 'rate-high' : r.rate >= 50 ? 'rate-mid' : 'rate-low';
+    const lv = r.loss > 0 ? '<span class="loss-val">' + fmt(r.loss) + '</span>' : '<span class="zero-val">-</span>';
+    return '<tr>' +
+      '<td class="store-name">' + r.store + '</td>' +
+      '<td>' + r.total + '</td><td>' + r.confirmed + '</td><td>' + r.rejected + '</td>' +
+      '<td><span class="rate-badge ' + rc + '">' + r.rate + '%</span></td>' +
+      '<td>' + r.adult + '</td><td>' + r.child + '</td><td>' + r.infant + '</td>' +
+      '<td><b>' + r.headcount + '</b></td>' +
+      '<td>' + fmt(r.revenue) + '</td>' +
+      '<td>' + lv + '</td>' +
+      '</tr>';
+  }).join('');
+
+  const tot = rows.reduce(function(a,r){ return {
+    total:a.total+r.total, confirmed:a.confirmed+r.confirmed, rejected:a.rejected+r.rejected,
+    adult:a.adult+r.adult, child:a.child+r.child, infant:a.infant+r.infant,
+    headcount:a.headcount+r.headcount, revenue:a.revenue+r.revenue, loss:a.loss+r.loss
+  }; }, {total:0,confirmed:0,rejected:0,adult:0,child:0,infant:0,headcount:0,revenue:0,loss:0});
+  const tr = tot.total > 0 ? (tot.confirmed/tot.total*100).toFixed(1) : 0;
+  document.getElementById('tfoot').innerHTML = '<tr>' +
+    '<td class="store-name">합계</td>' +
+    '<td>' + tot.total + '</td><td>' + tot.confirmed + '</td><td>' + tot.rejected + '</td>' +
+    '<td>' + tr + '%</td>' +
+    '<td>' + tot.adult + '</td><td>' + tot.child + '</td><td>' + tot.infant + '</td>' +
+    '<td>' + tot.headcount + '</td>' +
+    '<td>' + fmt(tot.revenue) + '</td>' +
+    '<td><span class="loss-val">' + fmt(tot.loss) + '</span></td>' +
+    '</tr>';
+}
+
+function setFilter(f) {
+  currentFilter = f;
+  document.getElementById('btn-all').className = 'filter-btn' + (f==='all' ? ' active' : '');
+  document.getElementById('btn-loss').className = 'filter-btn' + (f==='loss' ? ' active' : '');
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
