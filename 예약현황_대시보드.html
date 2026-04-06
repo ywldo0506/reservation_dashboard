@@ -47,6 +47,10 @@
   .rate-high{background:var(--green-l);color:var(--green)} .rate-mid{background:var(--orange-l);color:var(--orange)} .rate-low{background:var(--red-l);color:var(--red)}
   .loss-val{color:var(--red);font-weight:700} .zero-val{color:#BDBDBD}
   tfoot td { font-weight:700; background:#FFF9C4; padding:10px 12px; text-align:center; border-top:2px solid var(--border); }
+  thead th { cursor:pointer; user-select:none; }
+  thead th:hover { background:#1B5E20; }
+  thead th.loss-col:hover { background:#7f0000; }
+  .sort-arrow { margin-left:4px; font-size:10px; opacity:0.7; }
   tfoot td.store-name{text-align:left}
   @media(max-width:900px){.summary-grid{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:600px){.summary-grid{grid-template-columns:1fr 1fr};.container{padding:16px 12px};table{font-size:11px}}
@@ -83,10 +87,18 @@
     </div>
     <div style="overflow-x:auto">
       <table>
-        <thead><tr>
-          <th>예약매장</th><th>총건수</th><th>체결</th><th>불가</th><th>체결률</th>
-          <th>체결 성인</th><th>체결 초등</th><th>체결 미취학</th><th>체결 총인원</th>
-          <th>체결 예상금액(원)</th><th class="loss-col">손실 금액(원)</th>
+        <thead><tr id="sort-header">
+          <th onclick="sortBy(0,'str')">예약매장<span class="sort-arrow" id="arr0"></span></th>
+          <th onclick="sortBy(1,'num')">총건수<span class="sort-arrow" id="arr1">▼</span></th>
+          <th onclick="sortBy(2,'num')">체결<span class="sort-arrow" id="arr2"></span></th>
+          <th onclick="sortBy(3,'num')">불가<span class="sort-arrow" id="arr3"></span></th>
+          <th onclick="sortBy(4,'num')">체결률<span class="sort-arrow" id="arr4"></span></th>
+          <th onclick="sortBy(5,'num')">체결 성인<span class="sort-arrow" id="arr5"></span></th>
+          <th onclick="sortBy(6,'num')">체결 초등<span class="sort-arrow" id="arr6"></span></th>
+          <th onclick="sortBy(7,'num')">체결 미취학<span class="sort-arrow" id="arr7"></span></th>
+          <th onclick="sortBy(8,'num')">체결 총인원<span class="sort-arrow" id="arr8"></span></th>
+          <th onclick="sortBy(9,'num')">체결 예상금액(원)<span class="sort-arrow" id="arr9"></span></th>
+          <th class="loss-col" onclick="sortBy(10,'num')">손실 금액(원)<span class="sort-arrow" id="arr10"></span></th>
         </tr></thead>
         <tbody id="tbody"></tbody>
         <tfoot id="tfoot"></tfoot>
@@ -121,9 +133,10 @@ document.getElementById('bar-chart').innerHTML = DATA.구분.map(function(d) {
 
 function render() {
   const q = document.getElementById('search-input').value.trim();
-  let rows = DATA.rows;
+  var rows = DATA.rows;
   if (currentFilter === 'loss') rows = rows.filter(function(r){ return r.loss > 0; });
   if (q) rows = rows.filter(function(r){ return r.store.indexOf(q) >= 0; });
+  rows = getSortedRows(rows);
   document.getElementById('tbody').innerHTML = rows.map(function(r) {
     const rc = r.rate >= 80 ? 'rate-high' : r.rate >= 50 ? 'rate-mid' : 'rate-low';
     return '<tr><td class="store-name">' + r.store + '</td><td>' + r.total + '</td><td>' + r.confirmed + '</td><td>' + r.rejected + '</td>' +
@@ -134,13 +147,42 @@ function render() {
   const tot = rows.reduce(function(a,r){ return {total:a.total+r.total,confirmed:a.confirmed+r.confirmed,rejected:a.rejected+r.rejected,adult:a.adult+r.adult,child:a.child+r.child,infant:a.infant+r.infant,headcount:a.headcount+r.headcount,revenue:a.revenue+r.revenue,loss:a.loss+r.loss}; },{total:0,confirmed:0,rejected:0,adult:0,child:0,infant:0,headcount:0,revenue:0,loss:0});
   document.getElementById('tfoot').innerHTML = '<tr><td class="store-name">합계</td><td>'+tot.total+'</td><td>'+tot.confirmed+'</td><td>'+tot.rejected+'</td><td>'+(tot.total>0?(tot.confirmed/tot.total*100).toFixed(1):0)+'%</td><td>'+tot.adult+'</td><td>'+tot.child+'</td><td>'+tot.infant+'</td><td>'+tot.headcount+'</td><td>'+fmt(tot.revenue)+'</td><td><span class="loss-val">'+fmt(tot.loss)+'</span></td></tr>';
 }
+let sortCol = 1;
+let sortDir = -1; // -1: 내림차순, 1: 오름차순
+let sortType = 'num';
+
+function sortBy(col, type) {
+  if (sortCol === col) { sortDir *= -1; }
+  else { sortCol = col; sortDir = col === 0 ? 1 : -1; sortType = type; }
+  sortType = type;
+  // 화살표 업데이트
+  for (var i = 0; i <= 10; i++) {
+    var el = document.getElementById('arr' + i);
+    if (el) el.textContent = '';
+  }
+  var arr = document.getElementById('arr' + col);
+  if (arr) arr.textContent = sortDir === -1 ? '▼' : '▲';
+  render();
+}
+
 function setFilter(f) {
   currentFilter = f;
   document.getElementById('btn-all').className = 'filter-btn' + (f==='all' ? ' active' : '');
   document.getElementById('btn-loss').className = 'filter-btn' + (f==='loss' ? ' active' : '');
   render();
 }
+
+function getSortedRows(rows) {
+  var keys = ['store','total','confirmed','rejected','rate','adult','child','infant','headcount','revenue','loss'];
+  var key = keys[sortCol];
+  return rows.slice().sort(function(a, b) {
+    var va = a[key]; var vb = b[key];
+    if (sortType === 'str') { return sortDir * (va < vb ? -1 : va > vb ? 1 : 0); }
+    return sortDir * (vb - va);
+  });
+}
 render();
 </script>
 </body>
 </html>
+
